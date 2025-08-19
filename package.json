@@ -1,0 +1,35 @@
+{
+  "name": "modern-landing-page",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:accessibility": "vitest run --reporter=verbose components/__tests__/accessibility/",
+    "test:visual": "vitest run --reporter=verbose components/__tests__/visual/",
+    "test:performance": "vitest run --reporter=verbose components/__tests__/performance/",
+    "test:integration": "vitest run --reporter=verbose components/__tests__/integration/",
+    "test:watch": "vitest --watch",
+    "test:all": "npm run test:run && npm run test:coverage"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vitest/coverage-v8": "^1.0.4",
+    "@vitest/ui": "^1.0.4",
+    "jsdom": "^23.0.1",
+    "typescript": "^5.2.2",
+    "vitest": "^1.0.4"
+  },
+  "dependencies": {
+    "framer-motion": "^10.16.5",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

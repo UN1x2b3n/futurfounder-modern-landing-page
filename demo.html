@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics & Conversion Tracking Demo</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for demo */
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .analytics-card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .tracking-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .log-entry {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="demo-root"></div>
+    
+    <!-- Tracking Indicator -->
+    <div class="tracking-indicator">
+        <div class="analytics-card rounded-lg p-3 shadow-lg">
+            <div class="flex items-center gap-2">
+                <div class="pulse-dot w-3 h-3 bg-green-500 rounded-full"></div>
+                <span class="text-sm font-medium">Analytics Active</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Mock Analytics System for Demo
+        class MockAnalytics {
+            constructor() {
+                this.events = [];
+                this.conversions = [];
+                this.isInitialized = false;
+                this.listeners = [];
+            }
+
+            initialize() {
+                this.isInitialized = true;
+                console.log('🚀 Analytics initialized');
+                this.notifyListeners('Analytics system initialized');
+                return Promise.resolve();
+            }
+
+            trackEvent(event) {
+                this.events.push({ ...event, timestamp: Date.now() });
+                console.log('📊 Event tracked:', event);
+                this.notifyListeners(`Event: ${event.action} (${event.category})`);
+            }
+
+            trackConversion(conversion) {
+                this.conversions.push({ ...conversion, timestamp: Date.now() });
+                console.log('💰 Conversion tracked:', conversion);
+                this.notifyListeners(`Conversion: ${conversion.eventName} ($${conversion.conversionValue || 0})`);
+            }
+
+            trackCTAClick(ctaName, location, data = {}) {
+                this.trackEvent({
+                    action: 'cta_click',
+                    category: 'engagement',
+                    label: `${ctaName}_${location}`,
+                    customParameters: { cta_name: ctaName, cta_location: location, ...data }
+                });
+            }
+
+            addListener(callback) {
+                this.listeners.push(callback);
+            }
+
+            removeListener(callback) {
+                this.listeners = this.listeners.filter(l => l !== callback);
+            }
+
+            notifyListeners(message) {
+                this.listeners.forEach(callback => callback(message));
+            }
+
+            getStats() {
+                return {
+                    totalEvents: this.events.length,
+                    totalConversions: this.conversions.length,
+                    conversionValue: this.conversions.reduce((sum, c) => sum + (c.conversionValue || 0), 0)
+                };
+            }
+        }
+
+        // Global analytics instance
+        const analytics = new MockAnalytics();
+
+        // Demo Button Component
+        function DemoButton({ children, onClick, variant = 'primary', className = '', ...props }) {
+            const baseClasses = 'px-6 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-4';
+            const variants = {
+                primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500/50',
+                secondary: 'bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 focus:ring-blue-500/50',
+                success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500/50',
+                warning: 'bg-yellow-600 text-white hover:bg-yellow-700 focus:ring-yellow-500/50'
+            };
+
+            const handleClick = (e) => {
+                analytics.trackCTAClick('demo_button', 'demo_page', { variant });
+                if (onClick) onClick(e);
+            };
+
+            return (
+                <button 
+                    className={`${baseClasses} ${variants[variant]} ${className}`}
+                    onClick={handleClick}
+                    {...props}
+                >
+                    {children}
+                </button>
+            );
+        }
+
+        // Demo Form Component
+        function DemoForm({ onSubmit }) {
+            const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setIsSubmitting(true);
+
+                analytics.trackEvent({
+                    action: 'form_submit',
+                    category: 'engagement',
+                    label: 'demo_form',
+                    customParameters: { form_completion: '100%' }
+                });
+
+                // Simulate API call
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                analytics.trackConversion({
+                    eventName: 'form_submission',
+                    conversionValue: 15,
+                    customParameters: { form_type: 'demo_contact' }
+                });
+
+                setIsSubmitting(false);
+                setFormData({ name: '', email: '', message: '' });
+                if (onSubmit) onSubmit(formData);
+            };
+
+            const handleChange = (field, value) => {
+                setFormData(prev => ({ ...prev, [field]: value }));
+                analytics.trackEvent({
+                    action: 'field_change',
+                    category: 'form_interaction',
+                    label: `demo_form_${field}`,
+                    customParameters: { field_name: field, value_length: value.length }
+                });
+            };
+
+            return (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                        <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => handleChange('name', e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter your name"
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => handleChange('email', e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Enter your email"
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                        <textarea
+                            value={formData.message}
+                            onChange={(e) => handleChange('message', e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            rows="4"
+                            placeholder="Your message..."
+                            required
+                        />
+                    </div>
+                    
+                    <DemoButton 
+                        type="submit" 
+                        disabled={isSubmitting}
+                        className="w-full"
+                    >
+                        {isSubmitting ? 'Submitting...' : 'Submit Form'}
+                    </DemoButton>
+                </form>
+            );
+        }
+
+        // A/B Test Component
+        function ABTestDemo() {
+            const [variant, setVariant] = useState(null);
+
+            useEffect(() => {
+                // Simulate A/B test assignment
+                const variants = ['control', 'variant_a', 'variant_b'];
+                const assignedVariant = variants[Math.floor(Math.random() * variants.length)];
+                setVariant(assignedVariant);
+                
+                analytics.trackEvent({
+                    action: 'ab_test_assignment',
+                    category: 'experiment',
+                    label: `hero_test_${assignedVariant}`,
+                    customParameters: { test_id: 'hero_test', variant_id: assignedVariant }
+                });
+            }, []);
+
+            const handleVariantClick = () => {
+                analytics.trackEvent({
+                    action: 'ab_test_conversion',
+                    category: 'experiment',
+                    label: `hero_test_${variant}`,
+                    customParameters: { test_id: 'hero_test', variant_id: variant, conversion_type: 'click' }
+                });
+                
+                analytics.trackConversion({
+                    eventName: 'ab_test_conversion',
+                    conversionValue: 20,
+                    customParameters: { test_id: 'hero_test', variant_id: variant }
+                });
+            };
+
+            const variants = {
+                control: { text: 'Get Started', color: 'primary' },
+                variant_a: { text: 'Start Free Trial', color: 'success' },
+                variant_b: { text: 'Try It Now', color: 'warning' }
+            };
+
+            if (!variant) return <div>Loading A/B test...</div>;
+
+            const currentVariant = variants[variant];
+
+            return (
+                <div className="text-center">
+                    <div className="mb-4">
+                        <span className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
+                            A/B Test: {variant.toUpperCase()}
+                        </span>
+                    </div>
+                    <DemoButton 
+                        variant={currentVariant.color}
+                        onClick={handleVariantClick}
+                        className="text-lg px-8 py-4"
+                    >
+                        {currentVariant.text}
+                    </DemoButton>
+                    <p className="text-sm text-gray-500 mt-2">
+                        Refresh page to see different variants
+                    </p>
+                </div>
+            );
+        }
+
+        // Main Demo Component
+        function AnalyticsDemo() {
+            const [logs, setLogs] = useState([]);
+            const [stats, setStats] = useState({ events: 0, conversions: 0, value: 0 });
+            const [isVisible, setIsVisible] = useState({});
+
+            useEffect(() => {
+                analytics.initialize();
+
+                const handleAnalyticsEvent = (message) => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    setLogs(prev => [`[${timestamp}] ${message}`, ...prev.slice(0, 9)]);
+                    
+                    // Update stats
+                    const currentStats = analytics.getStats();
+                    setStats({
+                        events: currentStats.totalEvents,
+                        conversions: currentStats.totalConversions,
+                        value: currentStats.conversionValue
+                    });
+                };
+
+                analytics.addListener(handleAnalyticsEvent);
+
+                // Simulate scroll tracking
+                const handleScroll = () => {
+                    const scrollPercent = Math.round((window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100);
+                    if (scrollPercent > 0 && scrollPercent % 25 === 0) {
+                        analytics.trackEvent({
+                            action: 'scroll_depth',
+                            category: 'engagement',
+                            label: `${scrollPercent}%`,
+                            value: scrollPercent
+                        });
+                    }
+                };
+
+                window.addEventListener('scroll', handleScroll);
+
+                return () => {
+                    analytics.removeListener(handleAnalyticsEvent);
+                    window.removeEventListener('scroll', handleScroll);
+                };
+            }, []);
+
+            const handleDemoAction = (actionName, conversionValue = 0) => {
+                analytics.trackEvent({
+                    action: 'demo_action',
+                    category: 'demo',
+                    label: actionName,
+                    customParameters: { demo_type: 'interactive' }
+                });
+
+                if (conversionValue > 0) {
+                    analytics.trackConversion({
+                        eventName: actionName,
+                        conversionValue,
+                        customParameters: { demo_conversion: true }
+                    });
+                }
+            };
+
+            return (
+                <div className="min-h-screen gradient-bg">
+                    <div className="container mx-auto px-6 py-12">
+                        {/* Header */}
+                        <div className="text-center mb-12">
+                            <h1 className="text-5xl font-bold text-white mb-4">
+                                Analytics & Conversion Tracking Demo
+                            </h1>
+                            <p className="text-xl text-white/80 max-w-3xl mx-auto">
+                                Experience real-time analytics tracking, A/B testing, and performance monitoring. 
+                                Every interaction is tracked and displayed in the activity log.
+                            </p>
+                        </div>
+
+                        <div className="grid lg:grid-cols-3 gap-8">
+                            {/* Main Content */}
+                            <div className="lg:col-span-2 space-y-8">
+                                
+                                {/* Hero Section */}
+                                <div className="analytics-card rounded-2xl p-8 shadow-xl">
+                                    <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">
+                                        Interactive Demo
+                                    </h2>
+                                    <ABTestDemo />
+                                </div>
+
+                                {/* Feature Demos */}
+                                <div className="analytics-card rounded-2xl p-8 shadow-xl">
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                                        Analytics Features
+                                    </h3>
+                                    
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="space-y-4">
+                                            <DemoButton 
+                                                onClick={() => handleDemoAction('page_view_demo')}
+                                                className="w-full"
+                                            >
+                                                📊 Track Page View
+                                            </DemoButton>
+                                            
+                                            <DemoButton 
+                                                variant="success"
+                                                onClick={() => handleDemoAction('conversion_demo', 25)}
+                                                className="w-full"
+                                            >
+                                                💰 Track Conversion ($25)
+                                            </DemoButton>
+                                        </div>
+                                        
+                                        <div className="space-y-4">
+                                            <DemoButton 
+                                                variant="secondary"
+                                                onClick={() => handleDemoAction('interaction_demo')}
+                                                className="w-full"
+                                            >
+                                                👆 Track Interaction
+                                            </DemoButton>
+                                            
+                                            <DemoButton 
+                                                variant="warning"
+                                                onClick={() => {
+                                                    const startTime = performance.now();
+                                                    setTimeout(() => {
+                                                        const duration = performance.now() - startTime;
+                                                        analytics.trackEvent({
+                                                            action: 'performance_test',
+                                                            category: 'performance',
+                                                            label: 'demo_timing',
+                                                            value: Math.round(duration),
+                                                            customParameters: { test_duration: duration }
+                                                        });
+                                                    }, Math.random() * 1000 + 500);
+                                                }}
+                                                className="w-full"
+                                            >
+                                                ⚡ Performance Test
+                                            </DemoButton>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Form Demo */}
+                                <div className="analytics-card rounded-2xl p-8 shadow-xl">
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                                        Form Analytics Demo
+                                    </h3>
+                                    <div className="max-w-md mx-auto">
+                                        <DemoForm onSubmit={(data) => console.log('Form submitted:', data)} />
+                                    </div>
+                                    <p className="text-sm text-gray-500 mt-4 text-center">
+                                        Form tracks field interactions, validation, and submissions
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Sidebar */}
+                            <div className="space-y-6">
+                                {/* Live Stats */}
+                                <div className="analytics-card rounded-2xl p-6 shadow-xl">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">
+                                        📈 Live Analytics
+                                    </h3>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Total Events:</span>
+                                            <span className="font-bold text-blue-600">{stats.events}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Conversions:</span>
+                                            <span className="font-bold text-green-600">{stats.conversions}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Total Value:</span>
+                                            <span className="font-bold text-purple-600">${stats.value}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Activity Log */}
+                                <div className="analytics-card rounded-2xl p-6 shadow-xl">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-lg font-bold text-gray-900">
+                                            📝 Activity Log
+                                        </h3>
+                                        <button 
+                                            onClick={() => setLogs([])}
+                                            className="text-xs text-gray-500 hover:text-gray-700"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                                        {logs.length === 0 ? (
+                                            <p className="text-sm text-gray-500 italic">
+                                                Interact with the demo to see live tracking...
+                                            </p>
+                                        ) : (
+                                            logs.map((log, index) => (
+                                                <div 
+                                                    key={index}
+                                                    className="log-entry text-xs bg-gray-50 rounded p-2 font-mono border-l-2 border-blue-500"
+                                                >
+                                                    {log}
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Quick Actions */}
+                                <div className="analytics-card rounded-2xl p-6 shadow-xl">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">
+                                        🚀 Quick Actions
+                                    </h3>
+                                    
+                                    <div className="space-y-3">
+                                        <button 
+                                            onClick={() => {
+                                                analytics.trackEvent({
+                                                    action: 'scroll_simulation',
+                                                    category: 'engagement',
+                                                    label: '50%',
+                                                    value: 50
+                                                });
+                                            }}
+                                            className="w-full text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-sm transition-colors"
+                                        >
+                                            <div className="font-medium text-blue-900">Simulate Scroll</div>
+                                            <div className="text-blue-600 text-xs">Track scroll depth</div>
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={() => {
+                                                const variants = ['A', 'B', 'C'];
+                                                const variant = variants[Math.floor(Math.random() * variants.length)];
+                                                analytics.trackEvent({
+                                                    action: 'ab_test_view',
+                                                    category: 'experiment',
+                                                    label: `variant_${variant}`,
+                                                    customParameters: { variant }
+                                                });
+                                            }}
+                                            className="w-full text-left p-3 bg-purple-50 hover:bg-purple-100 rounded-lg text-sm transition-colors"
+                                        >
+                                            <div className="font-medium text-purple-900">Random A/B Test</div>
+                                            <div className="text-purple-600 text-xs">Assign test variant</div>
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={() => {
+                                                analytics.trackEvent({
+                                                    action: 'heatmap_click',
+                                                    category: 'interaction',
+                                                    label: 'demo_heatmap',
+                                                    customParameters: { 
+                                                        x: Math.floor(Math.random() * 1000),
+                                                        y: Math.floor(Math.random() * 800)
+                                                    }
+                                                });
+                                            }}
+                                            className="w-full text-left p-3 bg-orange-50 hover:bg-orange-100 rounded-lg text-sm transition-colors"
+                                        >
+                                            <div className="font-medium text-orange-900">Heatmap Click</div>
+                                            <div className="text-orange-600 text-xs">Record interaction</div>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="text-center mt-12 text-white/80">
+                            <p className="text-lg">
+                                🎯 This demo showcases comprehensive analytics tracking including events, conversions, A/B testing, and performance monitoring.
+                            </p>
+                            <p className="text-sm mt-2">
+                                Open browser console to see detailed tracking logs.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the demo
+        ReactDOM.render(<AnalyticsDemo />, document.getElementById('demo-root'));
+    </script>
+</body>
+</html>
